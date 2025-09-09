@@ -11,4 +11,4 @@ Pillow>=8.3.0
 scikit-image>=0.18.0
 shapely>=1.7.0
 tqdm>=4.62.0
-fsplit>=1.0.0
+# Removed problematic fsplit package

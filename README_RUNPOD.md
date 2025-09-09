@@ -14,14 +14,11 @@ This guide explains how to deploy and use the Video Subtitle Remover API on RUNP
 3. In the "Docker Command" field, add the following:
 
 ```bash
-git clone https://github.com/your-username/video-subtitle-remover.git && \
-cd video-subtitle-remover && \
+git clone https://github.com/kaziashike/Video-Text-Remover-V2.git && \
+cd Video-Text-Remover-V2 && \
 pip install -r requirements.txt && \
-pip install fastapi uvicorn && \
-python app.py
+python start_api.py
 ```
-
-Note: Replace `your-username` with the actual GitHub username where the repository is hosted.
 
 ## API Endpoints
 

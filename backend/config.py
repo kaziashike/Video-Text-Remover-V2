@@ -6,7 +6,8 @@ import torch
 import logging
 import platform
 import stat
-from fsplit.filesplit import Filesplit
+# Replaced problematic fsplit import with custom implementation
+from tools.file_utils import Filesplit
 
 # Project version number
 VERSION = "1.1.1"
