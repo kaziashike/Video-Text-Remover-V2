@@ -16,7 +16,7 @@ app = FastAPI(title="Video Subtitle Remover GUI",
 gui_tasks = {}
 
 # API Configuration
-BACKEND_API_URL = "http://localhost:8000"
+BACKEND_API_URL = "https://tc5ngt7jmmxv2g-8000.proxy.runpod.net"
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
