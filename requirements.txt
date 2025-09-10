@@ -1,19 +1,26 @@
 fastapi>=0.68.0
 uvicorn>=0.15.0
 python-multipart>=0.0.5
-opencv-python>=4.5.0
-torch==2.7.0+cu118
-torchvision==0.22.0+cu118
---extra-index-url https://download.pytorch.org/whl/cu118
-paddlepaddle-gpu==2.6.2
-paddleocr==2.7.3
-numpy>=1.21.0
-Pillow>=8.3.0
-scikit-image>=0.18.0
-shapely>=1.7.0
-tqdm>=4.62.0
-matplotlib>=3.3.0
-# Additional dependencies that might be needed
-scipy>=1.5.0
-pandas>=1.1.0
-# Removed problematic fsplit package
+albumentations~=1.4.10
+filesplit==3.0.2
+opencv-python==4.11.0.86
+scikit-image==0.25.2
+imgaug==0.4.0
+pyclipper==1.3.0.post6
+lmdb==1.6.2
+PyYAML==6.0.2
+omegaconf==2.3.0
+tqdm==4.67.1
+PySimpleGUI-4-foss==4.60.4.1
+easydict==1.13
+scikit-learn==1.6.1
+pandas==2.2.3
+webdataset==0.2.111
+numpy==2.2.5
+protobuf==6.30.2
+av==14.3.0
+einops==0.8.1
+paddleocr==2.10.0
+paddle2onnx==1.3.1
+onnxruntime-gpu==1.20.1
+onnxruntime-directml==1.20.1;  sys_platform == 'win32'
