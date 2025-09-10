@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bac
 
 # Better error handling for imports
 try:
-    # Import config from backend
     from backend import config
     from backend.main import SubtitleRemover
     BACKEND_AVAILABLE = True
