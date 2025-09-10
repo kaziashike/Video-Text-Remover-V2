@@ -529,7 +529,22 @@ async def process_video(
             "status": "processing",
             "input_path": temp_video_path,
             "output_path": output_video_path,
-            "progress": 0
+            "progress": 0,
+            "config": {
+                "mode": mode_enum.value,
+                "use_h264": use_h264,
+                "threshold_height_width_difference": threshold_height_width_difference,
+                "subtitle_area_deviation_pixel": subtitle_area_deviation_pixel,
+                "threshold_height_difference": threshold_height_difference,
+                "pixel_tolerance_y": pixel_tolerance_y,
+                "pixel_tolerance_x": pixel_tolerance_x,
+                "sttn_skip_detection": sttn_skip_detection,
+                "sttn_neighbor_stride": sttn_neighbor_stride,
+                "sttn_reference_length": sttn_reference_length,
+                "sttn_max_load_num": sttn_max_load_num,
+                "propainter_max_load_num": propainter_max_load_num,
+                "lama_super_fast": lama_super_fast
+            }
         }
         
         # Process video in background
@@ -558,11 +573,59 @@ def process_video_task(task_id: str, input_path: str, output_path: str):
         return
     
     try:
+        # Get task config
+        task_config = processing_tasks[task_id]["config"]
+        
+        # Save current config values to restore later
+        original_mode = config.MODE
+        original_use_h264 = config.USE_H264
+        original_threshold_height_width_difference = config.THRESHOLD_HEIGHT_WIDTH_DIFFERENCE
+        original_subtitle_area_deviation_pixel = config.SUBTITLE_AREA_DEVIATION_PIXEL
+        original_threshold_height_difference = config.THRESHOLD_HEIGHT_DIFFERENCE
+        original_pixel_tolerance_y = config.PIXEL_TOLERANCE_Y
+        original_pixel_tolerance_x = config.PIXEL_TOLERANCE_X
+        original_sttn_skip_detection = config.STTN_SKIP_DETECTION
+        original_sttn_neighbor_stride = config.STTN_NEIGHBOR_STRIDE
+        original_sttn_reference_length = config.STTN_REFERENCE_LENGTH
+        original_sttn_max_load_num = config.STTN_MAX_LOAD_NUM
+        original_propainter_max_load_num = config.PROPAINTER_MAX_LOAD_NUM
+        original_lama_super_fast = config.LAMA_SUPER_FAST
+        
+        # Apply config settings
+        config.MODE = config.InpaintMode(task_config["mode"])
+        config.USE_H264 = task_config["use_h264"]
+        config.THRESHOLD_HEIGHT_WIDTH_DIFFERENCE = task_config["threshold_height_width_difference"]
+        config.SUBTITLE_AREA_DEVIATION_PIXEL = task_config["subtitle_area_deviation_pixel"]
+        config.THRESHOLD_HEIGHT_DIFFERENCE = task_config["threshold_height_difference"]
+        config.PIXEL_TOLERANCE_Y = task_config["pixel_tolerance_y"]
+        config.PIXEL_TOLERANCE_X = task_config["pixel_tolerance_x"]
+        config.STTN_SKIP_DETECTION = task_config["sttn_skip_detection"]
+        config.STTN_NEIGHBOR_STRIDE = task_config["sttn_neighbor_stride"]
+        config.STTN_REFERENCE_LENGTH = task_config["sttn_reference_length"]
+        config.STTN_MAX_LOAD_NUM = task_config["sttn_max_load_num"]
+        config.PROPAINTER_MAX_LOAD_NUM = task_config["propainter_max_load_num"]
+        config.LAMA_SUPER_FAST = task_config["lama_super_fast"]
+        
         # Create subtitle remover
         remover = SubtitleRemover(input_path)
         
         # Override the output path
         remover.video_out_name = output_path
+        
+        # Restore original config values
+        config.MODE = original_mode
+        config.USE_H264 = original_use_h264
+        config.THRESHOLD_HEIGHT_WIDTH_DIFFERENCE = original_threshold_height_width_difference
+        config.SUBTITLE_AREA_DEVIATION_PIXEL = original_subtitle_area_deviation_pixel
+        config.THRESHOLD_HEIGHT_DIFFERENCE = original_threshold_height_difference
+        config.PIXEL_TOLERANCE_Y = original_pixel_tolerance_y
+        config.PIXEL_TOLERANCE_X = original_pixel_tolerance_x
+        config.STTN_SKIP_DETECTION = original_sttn_skip_detection
+        config.STTN_NEIGHBOR_STRIDE = original_sttn_neighbor_stride
+        config.STTN_REFERENCE_LENGTH = original_sttn_reference_length
+        config.STTN_MAX_LOAD_NUM = original_sttn_max_load_num
+        config.PROPAINTER_MAX_LOAD_NUM = original_propainter_max_load_num
+        config.LAMA_SUPER_FAST = original_lama_super_fast
         
         # Add progress tracking
         def progress_callback(progress):
