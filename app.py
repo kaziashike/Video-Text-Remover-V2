@@ -504,6 +504,23 @@ async def process_video(
         import uuid
         task_id = str(uuid.uuid4())
         
+        # Backup current config settings to restore them after SubtitleRemover initialization
+        config_backup = {
+            "MODE": config.InpaintMode(mode_enum.value),
+            "USE_H264": use_h264,
+            "THRESHOLD_HEIGHT_WIDTH_DIFFERENCE": threshold_height_width_difference,
+            "SUBTITLE_AREA_DEVIATION_PIXEL": subtitle_area_deviation_pixel,
+            "THRESHOLD_HEIGHT_DIFFERENCE": threshold_height_difference,
+            "PIXEL_TOLERANCE_Y": pixel_tolerance_y,
+            "PIXEL_TOLERANCE_X": pixel_tolerance_x,
+            "STTN_SKIP_DETECTION": sttn_skip_detection,
+            "STTN_NEIGHBOR_STRIDE": sttn_neighbor_stride,
+            "STTN_REFERENCE_LENGTH": sttn_reference_length,
+            "STTN_MAX_LOAD_NUM": sttn_max_load_num,
+            "PROPAINTER_MAX_LOAD_NUM": propainter_max_load_num,
+            "LAMA_SUPER_FAST": lama_super_fast
+        }
+        
         # Configure settings based on request
         config.USE_H264 = use_h264
         config.MODE = config.InpaintMode(mode_enum.value)
@@ -529,7 +546,8 @@ async def process_video(
             "status": "processing",
             "input_path": temp_video_path,
             "output_path": output_video_path,
-            "progress": 0
+            "progress": 0,
+            "config_backup": config_backup  # Store config to restore after initialization
         }
         
         # Process video in background
@@ -563,6 +581,16 @@ def process_video_task(task_id: str, input_path: str, output_path: str):
         
         # Override the output path
         remover.video_out_name = output_path
+        
+        # Re-apply the configuration that was reset by importlib.reload in SubtitleRemover.__init__
+        # Get the current config values from the processing task
+        task_info = processing_tasks.get(task_id, {})
+        if "config_backup" in task_info:
+            config_backup = task_info["config_backup"]
+            import config as config_module
+            for key, value in config_backup.items():
+                if hasattr(config_module, key):
+                    setattr(config_module, key, value)
         
         # Add progress tracking
         def progress_callback(progress):
