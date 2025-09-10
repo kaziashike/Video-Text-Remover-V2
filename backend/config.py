@@ -72,36 +72,145 @@ cuda_provider_options = {
     "do_copy_in_default_stream": True
 }
 
+def test_cuda_provider():
+    """Test if CUDA provider works with current environment by creating a simple model."""
+    try:
+        # Try to create a minimal session with CUDA provider
+        session_options = ort.SessionOptions()
+        
+        # Create a simple ONNX model
+        import numpy as np
+        from onnx import helper, TensorProto
+        
+        # Create a simple model with a single Add node
+        X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [1, 2])
+        Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [1, 2])
+        node = helper.make_node('Add', ['X', 'X'], ['Y'])
+        graph = helper.make_graph([node], 'test_graph', [X], [Y])
+        model = helper.make_model(graph)
+        
+        # Try to create session with CUDA provider
+        session = ort.InferenceSession(
+            model.SerializeToString(),
+            providers=[("CUDAExecutionProvider", cuda_provider_options), "CPUExecutionProvider"],
+            sess_options=session_options
+        )
+        
+        # Test inference
+        input_data = np.array([[1.0, 2.0]], dtype=np.float32)
+        result = session.run(None, {'X': input_data})
+        
+        # Verify result
+        if not np.array_equal(result[0], [[2.0, 4.0]]):
+            print("CUDA test inference returned unexpected result")
+            return False
+            
+        return True
+    except Exception as e:
+        print(f"CUDA provider test failed: {e}")
+        return False
+
 # For RunPod environment, prioritize CUDA with specific options
 RUNPOD_ENV = 'RUNPOD_POD_ID' in os.environ or 'RUNPOD' in os.environ
-if RUNPOD_ENV:
+
+# Check if CUDA is available through PyTorch
+TORCH_CUDA_AVAILABLE = torch.cuda.is_available()
+
+def test_cuda_provider():
+    """Test if CUDA provider works with current environment by creating a simple model."""
+    try:
+        # Try to create a minimal session with CUDA provider
+        session_options = ort.SessionOptions()
+        
+        # Create a simple ONNX model
+        import numpy as np
+        from onnx import helper, TensorProto
+        
+        # Create a simple model with a single Add node
+        X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [1, 2])
+        Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [1, 2])
+        node = helper.make_node('Add', ['X', 'X'], ['Y'])
+        graph = helper.make_graph([node], 'test_graph', [X], [Y])
+        model = helper.make_model(graph)
+        
+        # Try to create session with CUDA provider
+        session = ort.InferenceSession(
+            model.SerializeToString(),
+            providers=[("CUDAExecutionProvider", cuda_provider_options), "CPUExecutionProvider"],
+            sess_options=session_options
+        )
+        
+        # Test inference
+        input_data = np.array([[1.0, 2.0]], dtype=np.float32)
+        result = session.run(None, {'X': input_data})
+        
+        # Verify result
+        if not np.array_equal(result[0], [[2.0, 4.0]]):
+            print("CUDA test inference returned unexpected result")
+            return False
+            
+        return True
+    except Exception as e:
+        print(f"CUDA provider test failed: {e}")
+        return False
+
+def test_cuda_provider_simple():
+    """Simpler test for CUDA provider without specific options."""
+    try:
+        # Try to create a minimal session with just CUDA provider name
+        session_options = ort.SessionOptions()
+        
+        # Create a simple ONNX model
+        import numpy as np
+        from onnx import helper, TensorProto
+        
+        # Create a simple model with a single Add node
+        X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [1, 2])
+        Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [1, 2])
+        node = helper.make_node('Add', ['X', 'X'], ['Y'])
+        graph = helper.make_graph([node], 'test_graph', [X], [Y])
+        model = helper.make_model(graph)
+        
+        # Try to create session with CUDA provider (without options)
+        session = ort.InferenceSession(
+            model.SerializeToString(),
+            providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            sess_options=session_options
+        )
+        
+        # Test inference
+        input_data = np.array([[1.0, 2.0]], dtype=np.float32)
+        result = session.run(None, {'X': input_data})
+        
+        # Verify result
+        if not np.array_equal(result[0], [[2.0, 4.0]]):
+            print("Simple CUDA test inference returned unexpected result")
+            return False
+            
+        return True
+    except Exception as e:
+        print(f"Simple CUDA provider test failed: {e}")
+        return False
+
+if RUNPOD_ENV or TORCH_CUDA_AVAILABLE:
     # Try to use CUDA with specific options for better compatibility
-    # But gracefully fall back if CUDA 12/cuDNN 9 aren't available
     if "CUDAExecutionProvider" in available_providers:
-        try:
-            # Try to create a session with CUDA provider to test compatibility
-            session_options = ort.SessionOptions()
-            test_session = ort.InferenceSession(
-                os.path.join(DET_MODEL_PATH, "inference.pdmodel") if os.path.exists(os.path.join(DET_MODEL_PATH, "inference.pdmodel")) else 
-                os.path.join(DET_MODEL_PATH, "model.onnx") if os.path.exists(os.path.join(DET_MODEL_PATH, "model.onnx")) else 
-                None,
-                providers=[("CUDAExecutionProvider", cuda_provider_options)],
-                sess_options=session_options
-            )
+        if test_cuda_provider():
             ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
-            del test_session
-        except Exception as e:
-            # If CUDA fails, fall back to CPU with warning
-            print(f"Warning: CUDAExecutionProvider failed to initialize: {e}")
-            print("Falling back to CPUExecutionProvider")
+            print("Successfully initialized CUDAExecutionProvider with options")
+        elif test_cuda_provider_simple():
+            ONNX_PROVIDERS.append("CUDAExecutionProvider")
+            print("Successfully initialized CUDAExecutionProvider without options")
+        else:
+            # Fall back to CPU if CUDA test fails
             ONNX_PROVIDERS.append("CPUExecutionProvider")
+            print("Falling back to CPUExecutionProvider due to CUDA initialization failure")
     else:
-        # Fallback to other available providers
-        for provider in available_providers:
-            if provider not in [p[0] if isinstance(p, tuple) else p for p in ONNX_PROVIDERS]:
-                ONNX_PROVIDERS.append(provider)
+        # Fall back to CPU if CUDA is not available
+        ONNX_PROVIDERS.append("CPUExecutionProvider")
+        print("Falling back to CPUExecutionProvider as CUDAExecutionProvider is not available")
 else:
-    # Standard provider selection with fallback
+    # Standard provider selection
     for provider in available_providers:
         if provider in [
             "CPUExecutionProvider"
@@ -122,23 +231,16 @@ else:
             
         # For CUDA provider, test compatibility first
         if provider == "CUDAExecutionProvider":
-            try:
-                # Try to create a session with CUDA provider to test compatibility
-                session_options = ort.SessionOptions()
-                test_session = ort.InferenceSession(
-                    os.path.join(DET_MODEL_PATH, "inference.pdmodel") if os.path.exists(os.path.join(DET_MODEL_PATH, "inference.pdmodel")) else 
-                    os.path.join(DET_MODEL_PATH, "model.onnx") if os.path.exists(os.path.join(DET_MODEL_PATH, "model.onnx")) else 
-                    None,
-                    providers=[("CUDAExecutionProvider", cuda_provider_options)],
-                    sess_options=session_options
-                )
+            if test_cuda_provider():
                 ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
-                del test_session
-            except Exception as e:
-                # If CUDA fails, fall back to CPU with warning
-                print(f"Warning: CUDAExecutionProvider failed to initialize: {e}")
-                print("Falling back to CPUExecutionProvider")
+                print("Successfully initialized CUDAExecutionProvider with options")
+            elif test_cuda_provider_simple():
+                ONNX_PROVIDERS.append("CUDAExecutionProvider")
+                print("Successfully initialized CUDAExecutionProvider without options")
+            else:
+                # Fall back to CPU if CUDA test fails
                 ONNX_PROVIDERS.append("CPUExecutionProvider")
+                print("Falling back to CPUExecutionProvider due to CUDA initialization failure")
         else:
             ONNX_PROVIDERS.append(provider)
 # ×××××××××××××××××××× [不要改] end ××××××××××××××××××××

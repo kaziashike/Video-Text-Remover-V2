@@ -27,6 +27,44 @@ except Exception as e:
 # Check if we're running in RunPod environment
 RUNPOD_ENV = 'RUNPOD_POD_ID' in os.environ or 'RUNPOD' in os.environ
 
+# Available ONNX providers
+available_providers = []
+
+def check_cuda_cudnn_versions():
+    """Check and return CUDA and cuDNN versions if available"""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            return {"cuda": "not available"}
+            
+        import torch.version
+        cuda_version = torch.version.cuda
+        
+        # Get cuDNN version
+        cudnn_version = torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else None
+        
+        # Get CUDA driver version
+        import subprocess
+        try:
+            result = subprocess.run(['nvidia-smi', '-q', '-i', '0'], 
+                                  capture_output=True, text=True, timeout=5)
+            driver_version = None
+            if result.returncode == 0:
+                for line in result.stdout.split('\n'):
+                    if 'Driver Version' in line:
+                        driver_version = line.split(':')[1].strip()
+                        break
+        except Exception as e:
+            driver_version = f"Error getting driver version: {str(e)}"
+            
+        return {
+            "cuda": cuda_version,
+            "cudnn": cudnn_version,
+            "driver": driver_version
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 if RUNPOD_ENV:
     # Prioritize CUDA in RunPod environment
     import torch
@@ -452,25 +490,35 @@ async def health_check():
         
         # Test ONNX Runtime CUDA provider specifically
         onnx_cuda_test_result = "unknown"
-        if "CUDAExecutionProvider" in [p[0] if isinstance(p, tuple) else p for p in onnx_providers]:
+        onnx_cuda_test_error = None
+        if "CUDAExecutionProvider" in config.available_providers:
             try:
                 import onnxruntime as ort
-                # Try to create a minimal ONNX session with CUDA provider
                 import numpy as np
-                # Create a simple model for testing
-                test_model = """
-                <ir_version: 7, opset_import: [ "" : 14 ]>
-                graph test_graph (
-                  %input[FLOAT, 3]
-                ) {
-                  %output = Add(%input, %input)
-                  return %output
-                }
-                """
-                # This is a simplified test - in reality, we just want to know if CUDA provider works
-                onnx_cuda_test_result = "available"
+                from onnx import helper, TensorProto
+                
+                # Create a simple ONNX model
+                X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [1, 2])
+                Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [1, 2])
+                node = helper.make_node('Add', ['X', 'X'], ['Y'])
+                graph = helper.make_graph([node], 'test_graph', [X], [Y])
+                model = helper.make_model(graph)
+                
+                # Try to create session with CUDA provider
+                session_options = ort.SessionOptions()
+                session = ort.InferenceSession(
+                    model.SerializeToString(),
+                    providers=[("CUDAExecutionProvider", config.cuda_provider_options), "CPUExecutionProvider"],
+                    sess_options=session_options
+                )
+                
+                # Test inference
+                input_data = np.array([[1.0, 2.0]], dtype=np.float32)
+                result = session.run(None, {'X': input_data})
+                onnx_cuda_test_result = "successful"
             except Exception as e:
-                onnx_cuda_test_result = f"failed: {str(e)}"
+                onnx_cuda_test_result = "failed"
+                onnx_cuda_test_error = str(e)
         
         return {
             "status": "healthy",
@@ -480,6 +528,7 @@ async def health_check():
             "use_dml": use_dml,
             "onnx_providers": onnx_providers,
             "onnx_cuda_test": onnx_cuda_test_result,
+            "onnx_cuda_test_error": onnx_cuda_test_error,
             "cuda_cudnn_info": cuda_cudnn_info
         }
     except Exception as e:
