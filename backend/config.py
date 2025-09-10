@@ -115,7 +115,7 @@ MODE optional algorithm types
 - InpaintMode.PROPAINTER algorithm: Requires a lot of video memory, slow speed, good effect for videos with violent motion
 """
 # [Set inpaint algorithm]
-MODE = InpaintMode.LAMA
+MODE = InpaintMode.PROPAINTER
 # [Set pixel deviation]
 # Used to determine if it is a non-subtitle area (generally it is believed that the length of subtitle text boxes should be greater than the width, if the height of the subtitle box is greater than the width, and the amplitude of the excess exceeds the specified pixel size, it is considered a wrong detection)
 THRESHOLD_HEIGHT_WIDTH_DIFFERENCE = 10
