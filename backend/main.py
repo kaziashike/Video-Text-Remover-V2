@@ -39,7 +39,7 @@ class SubtitleDetect:
     @cached_property
     def text_detector(self):
         import paddle
-        #paddle.disable_signal_handler()
+        paddle.disable_signal_handler()
         from paddleocr.tools.infer import utility
         from paddleocr.tools.infer.predict_det import TextDetector
         # Get parameter object
