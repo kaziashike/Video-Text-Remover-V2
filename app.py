@@ -24,6 +24,20 @@ except Exception as e:
     BACKEND_ERROR = str(e)
     print(f"Backend import error: {e}")
 
+# RunPod GPU optimization
+# Check if we're running in RunPod environment
+RUNPOD_ENV = 'RUNPOD_POD_ID' in os.environ or 'RUNPOD' in os.environ
+
+if RUNPOD_ENV:
+    # Prioritize CUDA in RunPod environment
+    import torch
+    if torch.cuda.is_available():
+        # Force CUDA device
+        config.device = torch.device("cuda:0")
+        print("RunPod environment detected. Using CUDA device:", config.device)
+    else:
+        print("RunPod environment detected but CUDA not available.")
+
 app = FastAPI(title="Video Subtitle Remover API",
               description="API for removing subtitles from videos using AI",
               version="1.1.1" if BACKEND_AVAILABLE else "0.1.0")
@@ -434,13 +448,17 @@ async def health_check():
         use_dml = getattr(config, 'USE_DML', False)
         onnx_providers = getattr(config, 'ONNX_PROVIDERS', [])
         
+        # Get CUDA/cuDNN versions
+        cuda_cudnn_info = config.check_cuda_cudnn_versions()
+        
         return {
             "status": "healthy",
             "version": config.VERSION,
             "cuda_available": cuda_available,
             "device": device_info,
             "use_dml": use_dml,
-            "onnx_providers": onnx_providers
+            "onnx_providers": onnx_providers,
+            "cuda_cudnn_info": cuda_cudnn_info
         }
     except Exception as e:
         return JSONResponse(

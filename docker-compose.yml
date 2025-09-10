@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  video-subtitle-remover:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/models:/vsr/backend/models
+      - ./uploads:/vsr/uploads
+    environment:
+      - PORT=8000
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    runtime: nvidia

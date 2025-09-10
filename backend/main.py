@@ -48,7 +48,15 @@ class SubtitleDetect:
         args.det_algorithm = 'DB'
         args.det_model_dir = self.convertToOnnxModelIfNeeded(config.DET_MODEL_PATH)
         args.use_onnx=len(config.ONNX_PROVIDERS) > 0
-        args.onnx_providers=config.ONNX_PROVIDERS
+        # Handle both simple provider names and provider tuples with options
+        if args.use_onnx:
+            onnx_providers = []
+            for provider in config.ONNX_PROVIDERS:
+                if isinstance(provider, tuple):
+                    onnx_providers.append(provider)
+                else:
+                    onnx_providers.append(provider)
+            args.onnx_providers = onnx_providers
         return TextDetector(args)
 
     def detect_subtitle(self, img):

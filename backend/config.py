@@ -62,25 +62,79 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 # 是否使用ONNX(DirectML/AMD/Intel)
 ONNX_PROVIDERS = []
 available_providers = ort.get_available_providers()
-for provider in available_providers:
-    if provider in [
-        "CPUExecutionProvider"
-    ]:
-        continue
-    if provider not in [
-        "DmlExecutionProvider",         # DirectML，适用于 Windows GPU
-        "ROCMExecutionProvider",        # AMD ROCm
-        "MIGraphXExecutionProvider",    # AMD MIGraphX
-        "VitisAIExecutionProvider",     # AMD VitisAI，适用于 RyzenAI & Windows, 实测和DirectML性能似乎差不多
-        "OpenVINOExecutionProvider",    # Intel GPU
-        "MetalExecutionProvider",       # Apple macOS
-        "CoreMLExecutionProvider",      # Apple macOS
-        "CUDAExecutionProvider",        # Nvidia GPU
-    ]:
-        continue
-    ONNX_PROVIDERS.append(provider)
+
+# Enhanced provider selection with fallbacks for different CUDA versions
+cuda_provider_options = {
+    "device_id": 0,
+    "arena_extend_strategy": "kNextPowerOfTwo",
+    "gpu_mem_limit": 2 * 1024 * 1024 * 1024,  # 2GB
+    "cudnn_conv_algo_search": "EXHAUSTIVE",
+    "do_copy_in_default_stream": True
+}
+
+# For RunPod environment, prioritize CUDA with specific options
+RUNPOD_ENV = 'RUNPOD_POD_ID' in os.environ or 'RUNPOD' in os.environ
+if RUNPOD_ENV:
+    # Try to use CUDA with specific options for better compatibility
+    if "CUDAExecutionProvider" in available_providers:
+        ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
+    # Fallback to other GPU providers
+    for provider in available_providers:
+        if provider in [
+            "DmlExecutionProvider",         # DirectML，适用于 Windows GPU
+            "ROCMExecutionProvider",        # AMD ROCm
+            "CUDAExecutionProvider",        # Nvidia GPU (already added above)
+        ] and provider not in [p[0] if isinstance(p, tuple) else p for p in ONNX_PROVIDERS]:
+            ONNX_PROVIDERS.append(provider)
+else:
+    # Standard provider selection
+    for provider in available_providers:
+        if provider in [
+            "CPUExecutionProvider"
+        ]:
+            continue
+        if provider not in [
+            "DmlExecutionProvider",         # DirectML，适用于 Windows GPU
+            "ROCMExecutionProvider",        # AMD ROCm
+            "MIGraphXExecutionProvider",    # AMD MIGraphX
+            "VitisAIExecutionProvider",     # AMD VitisAI，适用于 RyzenAI & Windows, 实测和DirectML性能似乎差不多
+            "OpenVINOExecutionProvider",    # Intel GPU
+            "MetalExecutionProvider",       # Apple macOS
+            "CoreMLExecutionProvider",      # Apple macOS
+            "CUDAExecutionProvider",        # Nvidia GPU
+        ]:
+            continue
+        ONNX_PROVIDERS.append(provider)
 # ×××××××××××××××××××× [不要改] end ××××××××××××××××××××
 
+
+def check_cuda_cudnn_versions():
+    """
+    Check CUDA and cuDNN versions for debugging purposes
+    """
+    versions = {}
+    
+    # Check PyTorch CUDA version
+    try:
+        if torch.cuda.is_available():
+            versions['torch_cuda_version'] = torch.version.cuda
+            versions['torch_cudnn_version'] = torch.backends.cudnn.version()
+            versions['gpu_count'] = torch.cuda.device_count()
+            versions['gpu_name'] = torch.cuda.get_device_name(0) if torch.cuda.device_count() > 0 else "Unknown"
+        else:
+            versions['torch_cuda_available'] = False
+    except Exception as e:
+        versions['torch_error'] = str(e)
+    
+    # Check ONNX Runtime CUDA support
+    try:
+        versions['onnx_runtime_version'] = ort.__version__
+        versions['onnx_available_providers'] = ort.get_available_providers()
+        versions['onnx_cuda_provider_available'] = "CUDAExecutionProvider" in ort.get_available_providers()
+    except Exception as e:
+        versions['onnx_error'] = str(e)
+    
+    return versions
 
 @unique
 class InpaintMode(Enum):
