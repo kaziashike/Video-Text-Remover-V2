@@ -1,3 +1,5 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:21d62d962cad0ac265f2af0253b86677b8d0709f18633888fdfa10fef0ccb4e7
-size 150
+filename,filesize,encoding,header
+ProPainter_1.pth,50000000,,
+ProPainter_2.pth,50000000,,
+ProPainter_3.pth,50000000,,
+ProPainter_4.pth,7780510,,

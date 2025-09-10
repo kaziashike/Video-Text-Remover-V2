@@ -1,3 +1,4 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:248764ab4d894c928220e0fc7e595de1d1609fa1e72761915d3a0433cdcdaf56
-size 110
+filename,filesize,encoding,header
+ffmpeg_1.exe,50000000,,
+ffmpeg_2.exe,50000000,,
+ffmpeg_3.exe,13721856,,

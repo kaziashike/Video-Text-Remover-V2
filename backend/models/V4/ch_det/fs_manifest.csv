@@ -1,3 +1,4 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:048ce5e65bd00740e77eaab1467259e89051611104e6b780051d899c33288322
-size 137
+filename,filesize,encoding,header
+inference_1.pdiparams,50000000,,
+inference_2.pdiparams,50000000,,
+inference_3.pdiparams,13295054,,

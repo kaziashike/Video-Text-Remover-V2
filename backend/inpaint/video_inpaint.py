@@ -31,7 +31,7 @@ def read_mask(mpath, length, size, flow_mask_dilates=8, mask_dilates=5):
     masks_img = []
     masks_dilated = []
     flow_masks = []
-    # If numpy array is passed directly
+    # 如果传入的直接为numpy array
     if isinstance(mpath, np.ndarray):
         masks_img = [Image.fromarray(mpath)]
     # input single img path
