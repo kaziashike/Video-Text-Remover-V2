@@ -27,8 +27,27 @@ except Exception as e:
 # Check if we're running in RunPod environment
 RUNPOD_ENV = 'RUNPOD_POD_ID' in os.environ or 'RUNPOD' in os.environ
 
-# Available ONNX providers
-available_providers = []
+# Initialize ONNX providers
+try:
+    # Get available providers from ONNX Runtime
+    available_providers = ort.get_available_providers()
+    print(f"Available ONNX providers: {available_providers}")
+    
+    # Store provider options for CUDA if available
+    if "CUDAExecutionProvider" in available_providers:
+        cuda_provider_options = {
+            "device_id": 0,
+            "gpu_mem_limit": 5 * 1024 * 1024 * 1024,  # 5GB
+            "arena_extend_strategy": 0,
+            "cudnn_conv_algo_search": "DEFAULT",
+            "do_copy_in_default_stream": 1
+        }
+    else:
+        cuda_provider_options = None
+except Exception as e:
+    available_providers = []
+    print(f"Error initializing ONNX providers: {e}")
+    raise
 
 def check_cuda_cudnn_versions():
     """Check and return CUDA and cuDNN versions if available"""
@@ -491,7 +510,10 @@ async def health_check():
         # Test ONNX Runtime CUDA provider specifically
         onnx_cuda_test_result = "unknown"
         onnx_cuda_test_error = None
-        if "CUDAExecutionProvider" in config.available_providers:
+        
+        # Check if CUDAExecutionProvider is in the available providers list
+        available_providers = getattr(config, 'available_providers', [])
+        if "CUDAExecutionProvider" in available_providers:
             try:
                 import onnxruntime as ort
                 import numpy as np
@@ -506,9 +528,13 @@ async def health_check():
                 
                 # Try to create session with CUDA provider
                 session_options = ort.SessionOptions()
+                
+                # Use the same configuration as in config.py
+                cuda_provider_options = getattr(config, 'cuda_provider_options', {})
+                
                 session = ort.InferenceSession(
                     model.SerializeToString(),
-                    providers=[("CUDAExecutionProvider", config.cuda_provider_options), "CPUExecutionProvider"],
+                    providers=[("CUDAExecutionProvider", cuda_provider_options), "CPUExecutionProvider"],
                     sess_options=session_options
                 )
                 

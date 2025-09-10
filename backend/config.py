@@ -9,6 +9,27 @@ import stat
 from fsplit.filesplit import Filesplit
 import onnxruntime as ort
 
+@unique
+class InpaintMode(Enum):
+    """
+    图像重绘算法枚举
+    """
+    STTN = 'sttn'
+    LAMA = 'lama'
+    PROPAINTER = 'propainter'
+
+# Enhanced provider selection with fallbacks for different CUDA versions
+cuda_provider_options = {
+    "device_id": 0,
+    "arena_extend_strategy": "kNextPowerOfTwo",
+    "gpu_mem_limit": 2 * 1024 * 1024 * 1024,  # 2GB - adjust based on your GPU VRAM
+    "cudnn_conv_algo_search": "EXHAUSTIVE",
+    "do_copy_in_default_stream": True,
+    # Add new options for better CUDA version compatibility
+    "cudnn_conv_use_max_workspace": True,
+    "cudnn_conv_autotune": True
+}
+
 # 项目版本号
 VERSION = "1.1.1"
 # ×××××××××××××××××××× [不要改] start ××××××××××××××××××××
@@ -63,15 +84,6 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 ONNX_PROVIDERS = []
 available_providers = ort.get_available_providers()
 
-# Enhanced provider selection with fallbacks for different CUDA versions
-cuda_provider_options = {
-    "device_id": 0,
-    "arena_extend_strategy": "kNextPowerOfTwo",
-    "gpu_mem_limit": 2 * 1024 * 1024 * 1024,  # 2GB
-    "cudnn_conv_algo_search": "EXHAUSTIVE",
-    "do_copy_in_default_stream": True
-}
-
 def test_cuda_provider():
     """Test if CUDA provider works with current environment by creating a simple model."""
     try:
@@ -112,99 +124,31 @@ def test_cuda_provider():
 
 # For RunPod environment, prioritize CUDA with specific options
 RUNPOD_ENV = 'RUNPOD_POD_ID' in os.environ or 'RUNPOD' in os.environ
+TORCH_CUDA_AVAILABLE = False
+try:
+    TORCH_CUDA_AVAILABLE = torch.cuda.is_available()
+except:
+    pass
 
-# Check if CUDA is available through PyTorch
-TORCH_CUDA_AVAILABLE = torch.cuda.is_available()
-
-def test_cuda_provider():
-    """Test if CUDA provider works with current environment by creating a simple model."""
-    try:
-        # Try to create a minimal session with CUDA provider
-        session_options = ort.SessionOptions()
-        
-        # Create a simple ONNX model
-        import numpy as np
-        from onnx import helper, TensorProto
-        
-        # Create a simple model with a single Add node
-        X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [1, 2])
-        Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [1, 2])
-        node = helper.make_node('Add', ['X', 'X'], ['Y'])
-        graph = helper.make_graph([node], 'test_graph', [X], [Y])
-        model = helper.make_model(graph)
-        
-        # Try to create session with CUDA provider
-        session = ort.InferenceSession(
-            model.SerializeToString(),
-            providers=[("CUDAExecutionProvider", cuda_provider_options), "CPUExecutionProvider"],
-            sess_options=session_options
-        )
-        
-        # Test inference
-        input_data = np.array([[1.0, 2.0]], dtype=np.float32)
-        result = session.run(None, {'X': input_data})
-        
-        # Verify result
-        if not np.array_equal(result[0], [[2.0, 4.0]]):
-            print("CUDA test inference returned unexpected result")
-            return False
-            
-        return True
-    except Exception as e:
-        print(f"CUDA provider test failed: {e}")
-        return False
-
-def test_cuda_provider_simple():
-    """Simpler test for CUDA provider without specific options."""
-    try:
-        # Try to create a minimal session with just CUDA provider name
-        session_options = ort.SessionOptions()
-        
-        # Create a simple ONNX model
-        import numpy as np
-        from onnx import helper, TensorProto
-        
-        # Create a simple model with a single Add node
-        X = helper.make_tensor_value_info('X', TensorProto.FLOAT, [1, 2])
-        Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [1, 2])
-        node = helper.make_node('Add', ['X', 'X'], ['Y'])
-        graph = helper.make_graph([node], 'test_graph', [X], [Y])
-        model = helper.make_model(graph)
-        
-        # Try to create session with CUDA provider (without options)
-        session = ort.InferenceSession(
-            model.SerializeToString(),
-            providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
-            sess_options=session_options
-        )
-        
-        # Test inference
-        input_data = np.array([[1.0, 2.0]], dtype=np.float32)
-        result = session.run(None, {'X': input_data})
-        
-        # Verify result
-        if not np.array_equal(result[0], [[2.0, 4.0]]):
-            print("Simple CUDA test inference returned unexpected result")
-            return False
-            
-        return True
-    except Exception as e:
-        print(f"Simple CUDA provider test failed: {e}")
-        return False
-
+# Provider selection logic for CUDA 12
 if RUNPOD_ENV or TORCH_CUDA_AVAILABLE:
     # Try to use CUDA with specific options for better compatibility
     if "CUDAExecutionProvider" in available_providers:
-        if test_cuda_provider():
+        try:
+            # Try to initialize with options first
             ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
             print("Successfully initialized CUDAExecutionProvider with options")
-        elif test_cuda_provider_simple():
-            ONNX_PROVIDERS.append("CUDAExecutionProvider")
-            print("Successfully initialized CUDAExecutionProvider without options")
-        else:
-            # Fall back to CPU if CUDA test fails
-            ONNX_PROVIDERS.append("CPUExecutionProvider")
-            print("Falling back to CPUExecutionProvider due to CUDA initialization failure")
+        except Exception as e:
+            print(f"Failed to initialize CUDAExecutionProvider with options: {e}")
+            try:
+                # Try without options as fallback
+                ONNX_PROVIDERS.append("CUDAExecutionProvider")
+                print("Successfully initialized CUDAExecutionProvider without options")
+            except Exception as e2:
+                print(f"Failed to initialize CUDAExecutionProvider without options: {e2}")
+                # Fall back to CPU
+                ONNX_PROVIDERS.append("CPUExecutionProvider")
+                print("Falling back to CPUExecutionProvider")
     else:
         # Fall back to CPU if CUDA is not available
         ONNX_PROVIDERS.append("CPUExecutionProvider")
@@ -212,9 +156,7 @@ if RUNPOD_ENV or TORCH_CUDA_AVAILABLE:
 else:
     # Standard provider selection
     for provider in available_providers:
-        if provider in [
-            "CPUExecutionProvider"
-        ]:
+        if provider == "CPUExecutionProvider":
             ONNX_PROVIDERS.append(provider)
             continue
         if provider not in [
@@ -229,20 +171,7 @@ else:
         ]:
             continue
             
-        # For CUDA provider, test compatibility first
-        if provider == "CUDAExecutionProvider":
-            if test_cuda_provider():
-                ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
-                print("Successfully initialized CUDAExecutionProvider with options")
-            elif test_cuda_provider_simple():
-                ONNX_PROVIDERS.append("CUDAExecutionProvider")
-                print("Successfully initialized CUDAExecutionProvider without options")
-            else:
-                # Fall back to CPU if CUDA test fails
-                ONNX_PROVIDERS.append("CPUExecutionProvider")
-                print("Falling back to CPUExecutionProvider due to CUDA initialization failure")
-        else:
-            ONNX_PROVIDERS.append(provider)
+        ONNX_PROVIDERS.append(provider)
 # ×××××××××××××××××××× [不要改] end ××××××××××××××××××××
 
 
@@ -274,27 +203,11 @@ def check_cuda_cudnn_versions():
     
     return versions
 
-@unique
-class InpaintMode(Enum):
-    """
-    图像重绘算法枚举
-    """
-    STTN = 'sttn'
-    LAMA = 'lama'
-    PROPAINTER = 'propainter'
-
-
 # ×××××××××××××××××××× [可以改] start ××××××××××××××××××××
 # 是否使用h264编码，如果需要安卓手机分享生成的视频，请打开该选项
 USE_H264 = True
 
 # ×××××××××× 通用设置 start ××××××××××
-"""
-MODE可选算法类型
-- InpaintMode.STTN 算法：对于真人视频效果较好，速度快，可以跳过字幕检测
-- InpaintMode.LAMA 算法：对于动画类视频效果好，速度一般，不可以跳过字幕检测
-- InpaintMode.PROPAINTER 算法： 需要消耗大量显存，速度较慢，对运动非常剧烈的视频效果较好
-"""
 # 【设置inpaint算法】
 MODE = InpaintMode.PROPAINTER
 # 【设置像素点偏差】
@@ -327,7 +240,7 @@ PIXEL_TOLERANCE_X = 20  # 允许检测框横向偏差的像素点数
 4. STTN_MAX_LOAD_NUM
 含义：STTN算法每次最多加载的视频帧数量
 效果：设置越大速度越慢，但效果越好
-注意：要保证STTN_MAX_LOAD_NUM大于STTN_NEIGHBOR_STRIDE和STTN_REFERENCE_LENGTH
+注意：要保证STTN_MAX_LOAD_NUM大于STTN_REFERENCE_LENGTH * STTN_NEIGHBOR_STRIDE
 """
 STTN_SKIP_DETECTION = True
 # 参考帧步长
