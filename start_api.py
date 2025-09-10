@@ -17,20 +17,30 @@ def check_dependencies():
         'python-multipart',
         'opencv-python',
         'torch',
-        'paddleocr',
-        'paddlepaddle'
+        'paddleocr'
     ]
     
     missing_packages = []
     
     for package in required_packages:
         try:
-            if package == 'paddlepaddle':
-                importlib.util.find_spec('paddle')
+            if package == 'paddleocr':
+                importlib.util.find_spec('paddleocr')
             else:
                 importlib.util.find_spec(package.replace('-', '_'))
         except ImportError:
             missing_packages.append(package)
+    
+    # Check for paddlepaddle separately
+    paddle_available = False
+    try:
+        importlib.util.find_spec('paddle')
+        paddle_available = True
+    except ImportError:
+        pass
+    
+    if not paddle_available:
+        missing_packages.append('paddlepaddle-gpu')
     
     return missing_packages
 
