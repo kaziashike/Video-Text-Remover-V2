@@ -201,53 +201,53 @@ html_content = """
             
             <div class="form-group">
                 <label for="threshold_height_width_difference">Threshold Height Width Difference:</label>
-                <input type="number" id="threshold_height_width_difference" name="threshold_height_width_difference" value="10" min="0">
+                <input type="number" id="threshold_height_width_difference" name="threshold_height_width_difference" value="15" min="0">
             </div>
             
             <div class="form-group">
                 <label for="subtitle_area_deviation_pixel">Subtitle Area Deviation Pixel:</label>
-                <input type="number" id="subtitle_area_deviation_pixel" name="subtitle_area_deviation_pixel" value="20" min="0">
+                <input type="number" id="subtitle_area_deviation_pixel" name="subtitle_area_deviation_pixel" value="40" min="0">
             </div>
             
             <div class="form-group">
                 <label for="threshold_height_difference">Threshold Height Difference:</label>
-                <input type="number" id="threshold_height_difference" name="threshold_height_difference" value="20" min="0">
+                <input type="number" id="threshold_height_difference" name="threshold_height_difference" value="25" min="0">
             </div>
             
             <div class="form-group">
                 <label for="pixel_tolerance_y">Pixel Tolerance Y:</label>
-                <input type="number" id="pixel_tolerance_y" name="pixel_tolerance_y" value="20" min="0">
+                <input type="number" id="pixel_tolerance_y" name="pixel_tolerance_y" value="30" min="0">
             </div>
             
             <div class="form-group">
                 <label for="pixel_tolerance_x">Pixel Tolerance X:</label>
-                <input type="number" id="pixel_tolerance_x" name="pixel_tolerance_x" value="20" min="0">
+                <input type="number" id="pixel_tolerance_x" name="pixel_tolerance_x" value="30" min="0">
             </div>
             
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="sttn_skip_detection" name="sttn_skip_detection" checked> STTN Skip Detection
+                    <input type="checkbox" id="sttn_skip_detection" name="sttn_skip_detection"> STTN Skip Detection
                 </label>
             </div>
             
             <div class="form-group">
                 <label for="sttn_neighbor_stride">STTN Neighbor Stride:</label>
-                <input type="number" id="sttn_neighbor_stride" name="sttn_neighbor_stride" value="5" min="1">
+                <input type="number" id="sttn_neighbor_stride" name="sttn_neighbor_stride" value="3" min="1">
             </div>
             
             <div class="form-group">
                 <label for="sttn_reference_length">STTN Reference Length:</label>
-                <input type="number" id="sttn_reference_length" name="sttn_reference_length" value="10" min="1">
+                <input type="number" id="sttn_reference_length" name="sttn_reference_length" value="15" min="1">
             </div>
             
             <div class="form-group">
                 <label for="sttn_max_load_num">STTN Max Load Num:</label>
-                <input type="number" id="sttn_max_load_num" name="sttn_max_load_num" value="50" min="1">
+                <input type="number" id="sttn_max_load_num" name="sttn_max_load_num" value="70" min="1">
             </div>
             
             <div class="form-group">
                 <label for="propainter_max_load_num">PROPAINTER Max Load Num:</label>
-                <input type="number" id="propainter_max_load_num" name="propainter_max_load_num" value="70" min="1">
+                <input type="number" id="propainter_max_load_num" name="propainter_max_load_num" value="100" min="1">
             </div>
             
             <div class="form-group">
@@ -458,16 +458,16 @@ async def process_video(
     video: UploadFile = File(...),
     mode: str = Form(default="sttn"),
     use_h264: bool = Form(default=True),
-    threshold_height_width_difference: int = Form(default=10),
-    subtitle_area_deviation_pixel: int = Form(default=20),
-    threshold_height_difference: int = Form(default=20),
-    pixel_tolerance_y: int = Form(default=20),
-    pixel_tolerance_x: int = Form(default=20),
-    sttn_skip_detection: bool = Form(default=True),
-    sttn_neighbor_stride: int = Form(default=5),
-    sttn_reference_length: int = Form(default=10),
-    sttn_max_load_num: int = Form(default=50),
-    propainter_max_load_num: int = Form(default=70),
+    threshold_height_width_difference: int = Form(default=15),
+    subtitle_area_deviation_pixel: int = Form(default=40),
+    threshold_height_difference: int = Form(default=25),
+    pixel_tolerance_y: int = Form(default=30),
+    pixel_tolerance_x: int = Form(default=30),
+    sttn_skip_detection: bool = Form(default=False),
+    sttn_neighbor_stride: int = Form(default=3),
+    sttn_reference_length: int = Form(default=15),
+    sttn_max_load_num: int = Form(default=70),
+    propainter_max_load_num: int = Form(default=100),
     lama_super_fast: bool = Form(default=False)
 ):
     """
@@ -504,51 +504,34 @@ async def process_video(
         import uuid
         task_id = str(uuid.uuid4())
         
-        # Backup current config settings to restore them after SubtitleRemover initialization
-        config_backup = {
-            "MODE": config.InpaintMode(mode_enum.value),
-            "USE_H264": use_h264,
-            "THRESHOLD_HEIGHT_WIDTH_DIFFERENCE": threshold_height_width_difference,
-            "SUBTITLE_AREA_DEVIATION_PIXEL": subtitle_area_deviation_pixel,
-            "THRESHOLD_HEIGHT_DIFFERENCE": threshold_height_difference,
-            "PIXEL_TOLERANCE_Y": pixel_tolerance_y,
-            "PIXEL_TOLERANCE_X": pixel_tolerance_x,
-            "STTN_SKIP_DETECTION": sttn_skip_detection,
-            "STTN_NEIGHBOR_STRIDE": sttn_neighbor_stride,
-            "STTN_REFERENCE_LENGTH": sttn_reference_length,
-            "STTN_MAX_LOAD_NUM": sttn_max_load_num,
-            "PROPAINTER_MAX_LOAD_NUM": propainter_max_load_num,
-            "LAMA_SUPER_FAST": lama_super_fast
-        }
-        
-        # Configure settings based on request
-        config.USE_H264 = use_h264
-        config.MODE = config.InpaintMode(mode_enum.value)
-        config.THRESHOLD_HEIGHT_WIDTH_DIFFERENCE = threshold_height_width_difference
-        config.SUBTITLE_AREA_DEVIATION_PIXEL = subtitle_area_deviation_pixel
-        config.THRESHOLD_HEIGHT_DIFFERENCE = threshold_height_difference
-        config.PIXEL_TOLERANCE_Y = pixel_tolerance_y
-        config.PIXEL_TOLERANCE_X = pixel_tolerance_x
-        config.STTN_SKIP_DETECTION = sttn_skip_detection
-        config.STTN_NEIGHBOR_STRIDE = sttn_neighbor_stride
-        config.STTN_REFERENCE_LENGTH = sttn_reference_length
-        config.STTN_MAX_LOAD_NUM = sttn_max_load_num
-        config.PROPAINTER_MAX_LOAD_NUM = propainter_max_load_num
-        config.LAMA_SUPER_FAST = lama_super_fast
-        
-        # Create output file path
-        video_dir = os.path.dirname(temp_video_path)
-        video_name = os.path.splitext(os.path.basename(temp_video_path))[0]
-        output_video_path = os.path.join(video_dir, f"{video_name}_no_sub.mp4")
-        
-        # Store task info
+        # Store task info with configuration parameters
         processing_tasks[task_id] = {
             "status": "processing",
             "input_path": temp_video_path,
             "output_path": output_video_path,
             "progress": 0,
-            "config_backup": config_backup  # Store config to restore after initialization
+            "config": {
+                "MODE": mode_enum.value,
+                "USE_H264": use_h264,
+                "THRESHOLD_HEIGHT_WIDTH_DIFFERENCE": threshold_height_width_difference,
+                "SUBTITLE_AREA_DEVIATION_PIXEL": subtitle_area_deviation_pixel,
+                "THRESHOLD_HEIGHT_DIFFERENCE": threshold_height_difference,
+                "PIXEL_TOLERANCE_Y": pixel_tolerance_y,
+                "PIXEL_TOLERANCE_X": pixel_tolerance_x,
+                "STTN_SKIP_DETECTION": sttn_skip_detection,
+                "STTN_NEIGHBOR_STRIDE": sttn_neighbor_stride,
+                "STTN_REFERENCE_LENGTH": sttn_reference_length,
+                "STTN_MAX_LOAD_NUM": sttn_max_load_num,
+                "PROPAINTER_MAX_LOAD_NUM": propainter_max_load_num,
+                "LAMA_SUPER_FAST": lama_super_fast
+            }
         }
+        
+        # Create output file path
+        video_dir = os.path.dirname(temp_video_path)
+        video_name = os.path.splitext(os.path.basename(temp_video_path))[0]
+        output_video_path = os.path.join(video_dir, f"{video_name}_no_sub.mp4")
+        processing_tasks[task_id]["output_path"] = output_video_path
         
         # Process video in background
         background_tasks.add_task(process_video_task, task_id, temp_video_path, output_video_path)
@@ -576,21 +559,21 @@ def process_video_task(task_id: str, input_path: str, output_path: str):
         return
     
     try:
+        # Apply configuration before creating SubtitleRemover instance
+        task_info = processing_tasks.get(task_id, {})
+        if "config" in task_info:
+            config_settings = task_info["config"]
+            import config as config_module
+            # Apply all configuration settings before initializing SubtitleRemover
+            for key, value in config_settings.items():
+                if hasattr(config_module, key):
+                    setattr(config_module, key, value)
+        
         # Create subtitle remover
         remover = SubtitleRemover(input_path)
         
         # Override the output path
         remover.video_out_name = output_path
-        
-        # Re-apply the configuration that was reset by importlib.reload in SubtitleRemover.__init__
-        # Get the current config values from the processing task
-        task_info = processing_tasks.get(task_id, {})
-        if "config_backup" in task_info:
-            config_backup = task_info["config_backup"]
-            import config as config_module
-            for key, value in config_backup.items():
-                if hasattr(config_module, key):
-                    setattr(config_module, key, value)
         
         # Add progress tracking
         def progress_callback(progress):

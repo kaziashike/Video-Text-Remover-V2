@@ -47,8 +47,8 @@ class SubtitleDetect:
         args = utility.parse_args()
         args.det_algorithm = 'DB'
         args.det_model_dir = self.convertToOnnxModelIfNeeded(config.DET_MODEL_PATH)
-        args.use_onnx=len(config.ONNX_PROVIDERS) > 0
-        args.onnx_providers=config.ONNX_PROVIDERS
+        args.use_onnx = len(config.ONNX_PROVIDERS) > 0
+        args.onnx_providers = config.ONNX_PROVIDERS
         return TextDetector(args)
 
     def detect_subtitle(self, img):
@@ -756,6 +756,10 @@ class SubtitleRemover:
                                         if self.gui_mode:
                                             self.preview_frame = cv2.hconcat([batch[i], inpainted_frame])
                                 self.update_progress(tbar, increment=len(batch))
+                        
+                        # Add memory cleanup after batch processing
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
 
     def sttn_mode_with_no_detection(self, tbar):
         """
@@ -846,6 +850,10 @@ class SubtitleRemover:
                                 if self.gui_mode:
                                     self.preview_frame = cv2.hconcat([batch[i], inpainted_frame])
                         self.update_progress(tbar, increment=len(batch))
+                    
+                    # Add memory cleanup after batch processing
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
 
     def lama_mode(self, tbar):
         print('use lama mode')
@@ -875,6 +883,10 @@ class SubtitleRemover:
             tbar.update(1)
             self.progress_remover = 100 * float(index) / float(self.frame_count) // 2
             self.progress_total = 50 + self.progress_remover
+            
+            # Periodically clean up memory during processing
+            if index % 50 == 0 and torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def run(self):
         # 记录开始时间

@@ -154,6 +154,11 @@ class VideoInpaint:
         self.fix_flow_complete = self.init_fix_flow_model()
         # 设置inpaint模型
         self.model = self.init_inpaint_model()
+        
+        # Add memory optimization for RunPod
+        if torch.cuda.is_available():
+            # Ensure memory is clean before processing
+            torch.cuda.empty_cache()
 
     def init_raft_model(self):
         # set up RAFT and flow competition model
