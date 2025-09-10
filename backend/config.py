@@ -76,22 +76,37 @@ cuda_provider_options = {
 RUNPOD_ENV = 'RUNPOD_POD_ID' in os.environ or 'RUNPOD' in os.environ
 if RUNPOD_ENV:
     # Try to use CUDA with specific options for better compatibility
+    # But gracefully fall back if CUDA 12/cuDNN 9 aren't available
     if "CUDAExecutionProvider" in available_providers:
-        ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
-    # Fallback to other GPU providers
-    for provider in available_providers:
-        if provider in [
-            "DmlExecutionProvider",         # DirectML，适用于 Windows GPU
-            "ROCMExecutionProvider",        # AMD ROCm
-            "CUDAExecutionProvider",        # Nvidia GPU (already added above)
-        ] and provider not in [p[0] if isinstance(p, tuple) else p for p in ONNX_PROVIDERS]:
-            ONNX_PROVIDERS.append(provider)
+        try:
+            # Try to create a session with CUDA provider to test compatibility
+            session_options = ort.SessionOptions()
+            test_session = ort.InferenceSession(
+                os.path.join(DET_MODEL_PATH, "inference.pdmodel") if os.path.exists(os.path.join(DET_MODEL_PATH, "inference.pdmodel")) else 
+                os.path.join(DET_MODEL_PATH, "model.onnx") if os.path.exists(os.path.join(DET_MODEL_PATH, "model.onnx")) else 
+                None,
+                providers=[("CUDAExecutionProvider", cuda_provider_options)],
+                sess_options=session_options
+            )
+            ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
+            del test_session
+        except Exception as e:
+            # If CUDA fails, fall back to CPU with warning
+            print(f"Warning: CUDAExecutionProvider failed to initialize: {e}")
+            print("Falling back to CPUExecutionProvider")
+            ONNX_PROVIDERS.append("CPUExecutionProvider")
+    else:
+        # Fallback to other available providers
+        for provider in available_providers:
+            if provider not in [p[0] if isinstance(p, tuple) else p for p in ONNX_PROVIDERS]:
+                ONNX_PROVIDERS.append(provider)
 else:
-    # Standard provider selection
+    # Standard provider selection with fallback
     for provider in available_providers:
         if provider in [
             "CPUExecutionProvider"
         ]:
+            ONNX_PROVIDERS.append(provider)
             continue
         if provider not in [
             "DmlExecutionProvider",         # DirectML，适用于 Windows GPU
@@ -104,7 +119,28 @@ else:
             "CUDAExecutionProvider",        # Nvidia GPU
         ]:
             continue
-        ONNX_PROVIDERS.append(provider)
+            
+        # For CUDA provider, test compatibility first
+        if provider == "CUDAExecutionProvider":
+            try:
+                # Try to create a session with CUDA provider to test compatibility
+                session_options = ort.SessionOptions()
+                test_session = ort.InferenceSession(
+                    os.path.join(DET_MODEL_PATH, "inference.pdmodel") if os.path.exists(os.path.join(DET_MODEL_PATH, "inference.pdmodel")) else 
+                    os.path.join(DET_MODEL_PATH, "model.onnx") if os.path.exists(os.path.join(DET_MODEL_PATH, "model.onnx")) else 
+                    None,
+                    providers=[("CUDAExecutionProvider", cuda_provider_options)],
+                    sess_options=session_options
+                )
+                ONNX_PROVIDERS.append(("CUDAExecutionProvider", cuda_provider_options))
+                del test_session
+            except Exception as e:
+                # If CUDA fails, fall back to CPU with warning
+                print(f"Warning: CUDAExecutionProvider failed to initialize: {e}")
+                print("Falling back to CPUExecutionProvider")
+                ONNX_PROVIDERS.append("CPUExecutionProvider")
+        else:
+            ONNX_PROVIDERS.append(provider)
 # ×××××××××××××××××××× [不要改] end ××××××××××××××××××××
 
 

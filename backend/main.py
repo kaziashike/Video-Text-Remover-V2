@@ -60,8 +60,35 @@ class SubtitleDetect:
         return TextDetector(args)
 
     def detect_subtitle(self, img):
-        dt_boxes, elapse = self.text_detector(img)
-        return dt_boxes, elapse
+        try:
+            dt_boxes, elapse = self.text_detector(img)
+            return dt_boxes, elapse
+        except Exception as e:
+            # If GPU/CUDA fails, try to fall back to CPU
+            print(f"Warning: Text detection failed with current providers: {e}")
+            print("Attempting to use CPUExecutionProvider as fallback")
+            # Try with CPU only for this single call
+            try:
+                import paddle
+                paddle.disable_signal_handler()
+                from paddleocr.tools.infer import utility
+                from paddleocr.tools.infer.predict_det import TextDetector
+                
+                # Create temporary args for CPU-only detection
+                args = utility.parse_args()
+                args.det_algorithm = 'DB'
+                args.det_model_dir = self.convertToOnnxModelIfNeeded(config.DET_MODEL_PATH)
+                args.use_onnx = True
+                args.onnx_providers = ["CPUExecutionProvider"]
+                
+                # Create temporary detector with CPU provider
+                cpu_text_detector = TextDetector(args)
+                dt_boxes, elapse = cpu_text_detector(img)
+                return dt_boxes, elapse
+            except Exception as cpu_e:
+                # If even CPU fails, re-raise the original exception
+                print(f"CPU fallback also failed: {cpu_e}")
+                raise e
 
     @staticmethod
     def get_coordinates(dt_box):
